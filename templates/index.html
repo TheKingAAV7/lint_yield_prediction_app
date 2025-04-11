@@ -1,0 +1,66 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Crop Yield Prediction</title>
+    <style>
+        body { font-family: Arial; padding: 20px; background-color: #f4f4f4; }
+        form { background: white; padding: 20px; border-radius: 8px; max-width: 500px; margin: auto; }
+        input, select, label { display: block; width: 100%; margin-bottom: 10px; }
+        button { padding: 10px; background-color: green; color: white; border: none; cursor: pointer; }
+        button:hover { background-color: darkgreen; }
+    </style>
+</head>
+<body>
+    <h2 style="text-align:center;">Crop Yield Prediction</h2>
+    <form method="post" action="/predict">
+        <label>State:</label>
+        <select name="state" required>
+            <option value="Alabama">Alabama</option>
+            <option value="Arizona">Arizona</option>
+            <option value="Arkansas">Arkansas</option>
+            <option value="California">California</option>
+            <option value="Georgia">Georgia</option>
+            <option value="Louisiana">Louisiana</option>
+            <option value="Mississippi">Mississippi</option>
+            <option value="Missouri">Missouri</option>
+            <option value="New Mexico">New Mexico</option>
+            <option value="North Carolina">North Carolina</option>
+            <option value="Oklahoma">Oklahoma</option>
+            <option value="South Carolina">South Carolina</option>
+            <option value="Tennessee">Tennessee</option>
+            <option value="Texas">Texas</option>            
+            
+        </select>
+
+        <label>Year:</label>
+        <input type="number" name="year" required>
+
+        <label>Nitrogen (%)</label>
+        <input type="number" step="0.1" name="n_percent" required>
+
+        <label>Nitrogen (Pounds/Acre)</label>
+        <input type="number" step="0.1" name="n_pounds" required>
+
+        <label>Phosphorous (%)</label>
+        <input type="number" step="0.1" name="p_percent" required>
+
+        <label>Phosphorous (Pounds/Acre)</label>
+        <input type="number" step="0.1" name="p_pounds" required>
+
+        <label>Potash (%)</label>
+        <input type="number" step="0.1" name="k_percent" required>
+
+        <label>Potash (Pounds/Acre)</label>
+        <input type="number" step="0.1" name="k_pounds" required>
+
+        <label>Area Planted (acres)</label>
+        <input type="number" step="0.1" name="area_planted" required>
+
+        <label>Harvested Area (acres)</label>
+        <input type="number" step="0.1" name="harvested_area" required>
+
+        <button type="submit">Predict Yield</button>
+    </form>
+</body>
+</html>

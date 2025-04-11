@@ -1,0 +1,32 @@
+<!-- templates/result.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Prediction Results</title>
+    <style>
+        body { font-family: Arial; padding: 40px; background-color: #f9f9f9; }
+        .result-box {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0px 0px 10px rgba(0,0,0,0.1);
+            max-width: 500px;
+            margin: auto;
+        }
+        h2 { text-align: center; }
+        ul { list-style: none; padding: 0; }
+        li { padding: 8px 0; font-size: 18px; }
+        a { display: block; text-align: center; margin-top: 20px; text-decoration: none; color: green; }
+    </style>
+</head>
+<body>
+    <div class="result-box">
+        <h2>🌾 Crop Yield Predictions</h2>
+        <ul>
+            <li><strong>Improved SVR:</strong> {{ svr | round(2) }} lbs/acre</li>
+            <li><strong>K-Nearest Neighbors:</strong> {{ knn | round(2) }} lbs/acre</li>
+        </ul>
+        <a href="/">🔙 Go Back</a>
+    </div>
+</body>
+</html>
