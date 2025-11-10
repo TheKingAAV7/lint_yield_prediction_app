@@ -1,0 +1,260 @@
+# SHA-1 — step-by-step (complete, detailed)
+
+Below I’ll walk through every step of SHA-1: preprocessing (padding), parsing, the compression loop (message schedule, round functions, constants), and producing the final digest. I include pseudocode you can implement directly and a short worked example (the message `"abc"`).
+
+---
+
+## Quick overview
+
+SHA-1 takes an arbitrary-length message and produces a 160-bit (20-byte) digest. Internally it:
+
+1. Pads the message to a multiple of 512 bits.
+2. Splits into 512-bit blocks.
+3. Processes each block with a 160-bit internal state (five 32-bit words) through 80 rounds.
+4. Outputs the concatenation of the five state words (big-endian).
+
+> Note: SHA-1 is **cryptographically broken** for collision resistance — do not use it for new systems. This description is for learning/compatibility.
+
+---
+
+## Notation and helper ops
+
+* `ROTL(x,n)` = circular left rotate of 32-bit word `x` by `n` bits.
+* Bitwise ops: `AND`, `OR`, `XOR`, `NOT`.
+* All words are 32-bit unsigned, arithmetic modulo (2^{32}).
+* Input bytes are treated in **big-endian** for packing into 32-bit words (network order).
+
+---
+
+## 1) Preprocessing (padding)
+
+Given message `M` of length `L` bytes (i.e., `len(M) = L`, bit-length = `ml = 8L`):
+
+1. Append a single bit `1` to the message (i.e., append byte `0x80` if operating by bytes).
+2. Append `k` zero bits such that `(ml + 1 + k) ≡ 448 (mod 512)`. Equivalently, after appending `1` and `k` zeros, the total length (in bits) is congruent to 448 mod 512.
+
+   * In bytes: choose `k` so total padded length ≡ 56 (mod 64) bytes before appending length.
+3. Append the original message length `ml` as a 64-bit big-endian integer.
+
+Resulting padded message length is a multiple of 512 bits (i.e., N × 512 bits).
+
+**Example:** For `"abc"` (3 bytes, `ml = 24`):
+
+* Append `0x80`, then `0x00` bytes until total ≡ 56 mod 64, then append 8-byte length `0x0000000000000018`.
+
+---
+
+## 2) Parsing
+
+Split the padded message into `N` blocks `M₁, M₂, ..., M_N`, each 512 bits (64 bytes). Each block is further split into sixteen 32-bit big-endian words:
+
+```
+Mᵢ = (W0, W1, ..., W15)     where Wj is bits 32*j .. 32*j+31 of the block
+```
+
+---
+
+## 3) Initialization (initial hash values)
+
+Set five 32-bit words:
+
+```
+H0 = 0x67452301
+H1 = 0xEFCDAB89
+H2 = 0x98BADCFE
+H3 = 0x10325476
+H4 = 0xC3D2E1F0
+```
+
+---
+
+## 4) Process each 512-bit block
+
+For each block `Mᵢ`:
+
+### (a) Message schedule — expand to 80 words
+
+Create an array `W[0..79]` of 32-bit words:
+
+* For `t = 0..15`: `W[t] =` the block's 32-bit big-endian words.
+* For `t = 16..79`:
+  `W[t] = ROTL( W[t-3] XOR W[t-8] XOR W[t-14] XOR W[t-16], 1 )`
+
+This expansion mixes previous words to create the 80 round inputs.
+
+### (b) Initialize working variables
+
+Set:
+
+```
+a = H0
+b = H1
+c = H2
+d = H3
+e = H4
+```
+
+### (c) Main loop — 80 rounds
+
+For `t = 0..79` compute:
+
+Define the round function `f(t,b,c,d)` and constant `K(t)` depending on t:
+
+* `0 ≤ t ≤ 19`:
+
+  * `f = (b AND c) OR ((NOT b) AND d)`   — choose (ch)
+  * `K = 0x5A827999`
+* `20 ≤ t ≤ 39`:
+
+  * `f = b XOR c XOR d`                   — parity
+  * `K = 0x6ED9EBA1`
+* `40 ≤ t ≤ 59`:
+
+  * `f = (b AND c) OR (b AND d) OR (c AND d)` — majority
+  * `K = 0x8F1BBCDC`
+* `60 ≤ t ≤ 79`:
+
+  * `f = b XOR c XOR d`                   — parity
+  * `K = 0xCA62C1D6`
+
+Round step:
+
+```
+temp = (ROTL(a,5) + f + e + K + W[t]) mod 2^32
+e = d
+d = c
+c = ROTL(b,30)
+b = a
+a = temp
+```
+
+Notes:
+
+* All additions are modulo (2^{32}).
+* `ROTL(b,30)` is equivalent to a right rotate by 2, but use ROTL consistently.
+
+### (d) Add working vars back to H
+
+After 80 rounds:
+
+```
+H0 = (H0 + a) mod 2^32
+H1 = (H1 + b) mod 2^32
+H2 = (H2 + c) mod 2^32
+H3 = (H3 + d) mod 2^32
+H4 = (H4 + e) mod 2^32
+```
+
+Proceed to the next block.
+
+---
+
+## 5) Produce the final digest
+
+Concatenate `H0 || H1 || H2 || H3 || H4` as big-endian 32-bit words. The result is a 160-bit (20-byte) digest. Usually represented as 40 hexadecimal characters.
+
+---
+
+## Pseudocode (compact)
+
+```text
+function SHA1(message_bytes):
+    ml = len(message_bytes) * 8  # message bit length
+
+    # 1. Padding
+    message = message_bytes + 0x80
+    while (len(message) % 64) != 56:
+        message += 0x00
+    message += to_8byte_big_endian(ml)
+
+    # 2. Initialize H0..H4
+    H0, H1, H2, H3, H4 = 0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0
+
+    # 3. Process each 512-bit block
+    for each 64-byte block in message:
+        # Prepare W[0..79]
+        for t in 0..15:
+            W[t] = big_endian_to_uint32(block[4*t : 4*t+4])
+        for t in 16..79:
+            W[t] = ROTL( W[t-3] XOR W[t-8] XOR W[t-14] XOR W[t-16], 1 )
+
+        # Initialize working vars
+        a, b, c, d, e = H0, H1, H2, H3, H4
+
+        # 80 rounds
+        for t in 0..79:
+            if 0 <= t <= 19:
+                f = (b & c) | ((~b) & d)
+                K = 0x5A827999
+            elif 20 <= t <= 39:
+                f = b ^ c ^ d
+                K = 0x6ED9EBA1
+            elif 40 <= t <= 59:
+                f = (b & c) | (b & d) | (c & d)
+                K = 0x8F1BBCDC
+            else:
+                f = b ^ c ^ d
+                K = 0xCA62C1D6
+
+            temp = (ROTL(a,5) + f + e + K + W[t]) & 0xFFFFFFFF
+            e = d
+            d = c
+            c = ROTL(b,30)
+            b = a
+            a = temp
+
+        # Add this block's hash to result so far
+        H0 = (H0 + a) & 0xFFFFFFFF
+        H1 = (H1 + b) & 0xFFFFFFFF
+        H2 = (H2 + c) & 0xFFFFFFFF
+        H3 = (H3 + d) & 0xFFFFFFFF
+        H4 = (H4 + e) & 0xFFFFFFFF
+
+    # Output: big-endian concatenation of H0..H4
+    return to_bytes_big_endian(H0,4) || ... || to_bytes_big_endian(H4,4)
+```
+
+---
+
+## Short worked example — `"abc"`
+
+Message: ASCII `"abc"` = bytes `0x61 0x62 0x63` (3 bytes, ml = 24 bits).
+
+After padding and appending length, the padded message is exactly one 512-bit block. Running SHA-1 on `"abc"` produces the well-known digest (hex):
+
+```
+SHA1("abc") = a9993e364706816aba3e25717850c26c9cd0d89d
+```
+
+Split into H words (final H0..H4) in hex:
+
+```
+H0 = 0xA9993E36
+H1 = 0x4706816A
+H2 = 0xBA3E2571
+H3 = 0x7850C26C
+H4 = 0x9CD0D89D
+```
+
+(These are the final values after processing the single block and adding them to the initial state.)
+
+---
+
+## Implementation tips & gotchas
+
+* **Endianness**: SHA-1 uses **big-endian** ordering for packing bytes into 32-bit words and for the final output.
+* **Bit/byte handling**: If implementing in a language with signed bytes, be careful to treat bytes as unsigned.
+* **Rotate vs shift**: Use circular rotate (not logical shift) for `ROTL`.
+* **Mod 2³²**: Ensure all additions wrap modulo (2^{32}).
+* **Performance**: Unroll loops or use optimized bit ops in performance-critical code; many libraries provide optimized assembly/C implementations.
+* **Security**: SHA-1 collisions have been demonstrated; prefer SHA-256 or better for new systems.
+
+---
+
+If you want, I can:
+
+* show a full numeric walkthrough for the first few rounds on the `"abc"` block (step-by-step values of `W[0..]`, `a..e` for `t=0..4`), or
+* provide a ready-to-run implementation in C/C++/Python (brief and correct about endianness), or
+* show how SHA-1 differs from SHA-256 at a high level.
+
+Which follow-up would help you most?
