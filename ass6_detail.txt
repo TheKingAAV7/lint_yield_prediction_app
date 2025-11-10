@@ -1,0 +1,230 @@
+Perfect — this is a nice **Python simulation of RSA Encryption + Digital Signature**.
+Let’s break it down **step-by-step**, explain the **concepts**, the **code**, and **why each part is needed** in secure communication.
+
+---
+
+# 🔐 Conceptual Overview
+
+This program simulates a **secure communication** between:
+
+* **X (Sender)** and
+* **Y (Receiver)**
+  using **RSA (Public-Key Cryptography)** for both **encryption** and **digital signatures**.
+
+---
+
+## 🧠 What are the main goals?
+
+| Goal                                         | Technique Used                                       |
+| -------------------------------------------- | ---------------------------------------------------- |
+| **Confidentiality** (only receiver can read) | **Encryption** using Receiver’s **Public Key**       |
+| **Authentication** (verify sender identity)  | **Digital Signature** using Sender’s **Private Key** |
+| **Integrity** (message not modified)         | **Signature verification** (compare hashes)          |
+
+---
+
+# ⚙️ Step-by-Step Explanation
+
+## 1️⃣ Key Generation — `generate_keypair()`
+
+This function creates RSA public and private keys for both X and Y.
+
+**Steps:**
+
+1. Randomly pick two large **prime numbers** `p` and `q`.
+2. Compute:
+
+   ```
+   n = p * q               # modulus
+   φ(n) = (p - 1)*(q - 1)  # totient
+   ```
+3. Choose `e` (public exponent) such that gcd(e, φ) = 1.
+4. Compute the modular inverse of `e` → `d`, satisfying:
+
+   ```
+   (e * d) mod φ = 1
+   ```
+5. Return:
+
+   * **Public key:** (e, n)
+   * **Private key:** (d, n)
+
+🔹 **Purpose:**
+RSA security comes from the difficulty of factoring `n` into `p` and `q`.
+
+* Only the owner knows `d` (private key).
+* Everyone can know `(e, n)` (public key).
+
+---
+
+## 2️⃣ Encryption — `rsa_encrypt(message, public_key)`
+
+Used by **Sender (X)** to encrypt message for **Receiver (Y)**.
+
+Each character’s ASCII value is raised to the power `e` (receiver’s public exponent) modulo `n`:
+
+```python
+cipher_char = (ord(char) ** e) % n
+```
+
+🔹 **Purpose:**
+Only the receiver, who has the private key `(d, n)`, can decrypt it.
+→ ensures **Confidentiality**.
+
+---
+
+## 3️⃣ Decryption — `rsa_decrypt(encrypted_message, private_key)`
+
+Performed by **Receiver (Y)**.
+
+Each number in ciphertext is decrypted:
+
+```python
+plain_char = (cipher_char ** d) % n
+```
+
+🔹 **Purpose:**
+Restores the original message using private key.
+Only **authorized receiver** can do this.
+
+---
+
+## 4️⃣ Digital Signature — `generate_signature(message, private_key)`
+
+This ensures the **authenticity** of the sender.
+
+**Process:**
+
+1. Compute the **SHA-256 hash** of the message:
+
+   ```python
+   hashed_message = hashlib.sha256(message.encode()).hexdigest()
+   ```
+
+   → this converts message into a unique 256-bit digest.
+
+2. Encrypt the hash using **Sender’s private key**:
+
+   ```python
+   signature = rsa_encrypt(hashed_message, private_key_X)
+   ```
+
+🔹 **Purpose:**
+
+* Only **X** (sender) can create this signature (since only X has their private key).
+* The receiver can verify it using X’s public key.
+
+Thus, the signature proves:
+✅ **Message is from X** (authenticity)
+✅ **Message not changed** (integrity)
+
+---
+
+## 5️⃣ Signature Verification — `verify_signature()`
+
+Performed by the receiver after decrypting the message.
+
+**Process:**
+
+1. Compute hash of received message (`hashed_message`).
+2. Decrypt sender’s signature using **sender’s public key**:
+
+   ```python
+   decrypted_signature = rsa_decrypt(signature, public_key_X)
+   ```
+3. Compare both:
+
+   ```python
+   return decrypted_signature == hashed_message
+   ```
+
+If both match → signature verified ✅
+
+🔹 **Purpose:**
+Ensures:
+
+* The message wasn’t tampered in transit.
+* The sender is authentic (only X could have made that signature).
+
+---
+
+## 6️⃣ Unauthorized Decryption Attempt (Attacker “Z”)
+
+```python
+try:
+    pr_x = "test"
+    de = rsa_decrypt(encrypted_message, pr_x)
+except:
+    print("Z failed...")
+```
+
+Here, **Z** (attacker) tries to decrypt the ciphertext **without the correct private key** — this fails.
+→ Demonstrates **Confidentiality** of RSA.
+
+---
+
+## 7️⃣ Receiver’s Side Actions
+
+Receiver **Y** does:
+
+1. Decrypts message with their **private key**.
+2. Verifies signature using **X’s public key**.
+
+If valid:
+
+```
+Signature Verified — Message Integrity and Authenticity Confirmed.
+```
+
+---
+
+# 🧩 Flow Summary
+
+| Step | Operation              | Performed By | Key Used            | Ensures                  |
+| ---- | ---------------------- | ------------ | ------------------- | ------------------------ |
+| 1    | `rsa_encrypt()`        | Sender (X)   | Y’s **Public Key**  | Confidentiality          |
+| 2    | `generate_signature()` | Sender (X)   | X’s **Private Key** | Authenticity & Integrity |
+| 3    | `rsa_decrypt()`        | Receiver (Y) | Y’s **Private Key** | Retrieve message         |
+| 4    | `verify_signature()`   | Receiver (Y) | X’s **Public Key**  | Confirm authenticity     |
+
+---
+
+# 🧮 Example (Simplified Flow)
+
+Suppose X sends `"HELLO"` to Y.
+
+1. **Encryption (Confidentiality)**
+   X → encrypts `"HELLO"` using Y’s public key → `[big numbers]`
+
+2. **Signature (Authenticity + Integrity)**
+   X → hashes `"HELLO"` using SHA-256 → encrypts that hash with **X’s private key** → `signature`.
+
+3. **Y decrypts message** with their **private key** → `"HELLO"`
+
+4. **Y verifies signature** with X’s public key → same hash ⇒ message genuine and unaltered.
+
+---
+
+# 🔒 Why Digital Signature is Needed
+
+Without it, anyone could send an encrypted message pretending to be X.
+The signature binds **X’s identity** to the message using cryptographic proof.
+
+---
+
+# 💡 Technical Summary
+
+| Term                        | Meaning                                                             |
+| --------------------------- | ------------------------------------------------------------------- |
+| **Public Key (e, n)**       | Shared with everyone; used for encryption or signature verification |
+| **Private Key (d, n)**      | Kept secret; used for decryption or signing                         |
+| **Hash Function (SHA-256)** | Produces fixed-size digest of message (for integrity)               |
+| **Encryption**              | Converts plaintext → ciphertext using public key                    |
+| **Decryption**              | Converts ciphertext → plaintext using private key                   |
+| **Signature**               | Hash encrypted with private key                                     |
+| **Verification**            | Decrypt signature and compare with computed hash                    |
+
+---
+
+If you’d like, I can show a **diagrammatic flow** of this message + signature exchange (X → Y → verify) so you can visualize it like a mini secure mail system.
+Would you like that?
